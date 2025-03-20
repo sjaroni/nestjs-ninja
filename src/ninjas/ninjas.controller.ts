@@ -1,50 +1,71 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  Get,
+  NotFoundException,
+  Param,
+  ParseIntPipe,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+  ValidationPipe,
+} from '@nestjs/common';
 import { CreateNinjaDto } from './dto/create-ninja.dto';
 import { UpdateNinjaDto } from './dto/update-ninja.dto';
+import { NinjasService } from './ninjas.service';
+import { Weapon } from './enums/weapon.enum';
+import { BeltGuard } from 'src/belt/belt.guard';
 
 @Controller('ninjas')
+// @UseGuards(BeltGuard) // ganzer Controller ist geschützt
 export class NinjasController {
-  
-  // GET /ninjas?type=fast --> []
+  // solution to a)
+  constructor(private readonly ninjasService: NinjasService) {}
+
+  // GET /ninjas --> []
+  // GET /ninjas?weapon=stars --> []
   @Get()
-  getNinjas(@Query('type') type: string) {
-    return [
-      {
-        type
-      }
-    ];
+  // getNinjas(@Query('weapon') weapon: 'stars' | 'nunchucks') {
+  getNinjas(@Query('weapon') weapon: Weapon) {
+    // a) annoying to implement on any route
+    // const service = new NinjasService();
+    // return service.getNinjas(weapon);
+    return this.ninjasService.getNinjas(weapon);
   }
 
   // GET /ninjas/:id --> { ... }
   @Get(':id')
-  getSingleNinja(@Param('id') id: string) {
-    return {
-      id
-    };
+  getOneNinja(@Param('id', ParseIntPipe) id: number) {
+    try {
+      return this.ninjasService.getNinja(id);
+    } catch (error) {
+      // throw new NotFoundException(); // 404 Error
+      throw new BadRequestException('Something bad happened', {
+        cause: new Error(),
+        description: 'Some error description',
+      }); // 400 Error
+    }
   }
 
   // POST /ninjas
   @Post()
-  createNinja(@Body() createNinjaDto: CreateNinjaDto) {
-    return {
-      name: createNinjaDto.name
-    };
+  @UseGuards(BeltGuard) // Methode ist geschützt
+  createNinja(@Body(new ValidationPipe()) createNinjaDto: CreateNinjaDto) {
+    return this.ninjasService.createNinja(createNinjaDto);
   }
 
   // PUT /ninjas/:id --> { ... }
   @Put(':id')
   updateNinja(@Param('id') id: string, @Body() updateNinjaDto: UpdateNinjaDto) {
-    return {
-      id,
-      name: updateNinjaDto
-    };
+    return this.ninjasService.updateNinja(+id, updateNinjaDto);
   }
 
   // DELETE /ninjas/:id
   @Delete(':id')
-  deleteNinja(@Param('id') id: string) {
-    return {
-      id
-    };
+  removeNinja(@Param('id') id: string) {
+    return this.ninjasService.removeNinja(+id);
   }
 }
